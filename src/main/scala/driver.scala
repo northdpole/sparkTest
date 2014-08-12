@@ -28,8 +28,8 @@ object Driver {
 	println(today.toString)
 	val conf = new SparkConf().setAppName(today.toString)
 							  // .setMaster("yarn-client")
-							  .set("spark.cleaner.ttl","4")
-							  .set("spark.task.maxFailures","1")
+							  .set("spark.cleaner.ttl","8")
+							  .set("spark.task.maxFailures","2")
 							  //.set("spark.executor.memory","1g")
 	//.setJars("/tmp/cert-log-manager-assembly-1.0.jar")//.set("spark.streaming.unpersist" ,"true")	
 

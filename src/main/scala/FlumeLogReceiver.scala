@@ -6,7 +6,8 @@ import org.apache.spark.storage.StorageLevel
 import java.io._
 import java.nio._
 
-class FlumeLogReceiver (
+@serializable
+class FlumeLogReceiver(
 	val conf: SparkConf,
 	val readingFreq: Long,
 	val processor: CertLogProcessor,
@@ -24,13 +25,18 @@ class FlumeLogReceiver (
 	 	stream.count.map(cnt => "Count: Received " + cnt + " flume events." ).print
 
 		//stream.map(event=>"Event: header:"+ event.event.getHeaders.toString+" body:"+ new String(event.event.getBody.array) ).print
-		
+
 		var out = stream.map(event => processor.process(event.event))
-		
+
 		//.saveAsTextFiles("file:///tmp/spark/Output","Log")
-		
-		out.filter(element => element.get match{case "None found" => false case _=>true}).print
+
+		//ayto den kanei match tpt!
+		out.filter(element =>element match{
+											 case None=>false
+											 case Some(v)=> v.getHeaders.containsValue("Monitoring")}).map(element=>"Filtered:" + element).print
+
 		//stream.print()
+
 		ssc.start()
 		ssc.awaitTermination()
 		//Thread.sleep(100000)

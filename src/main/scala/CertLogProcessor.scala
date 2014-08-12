@@ -10,12 +10,24 @@ import  scala.io.Source._
 import scala.collection._
 import scala.collection.JavaConverters;
 import java.util.Calendar
+import java.sql.PreparedStatement
+import java.sql.Connection
+import java.util.Properties
+import java.sql.DriverManager
 
 object CertLogProcessor{
 	var config_path = "/opt/etc/spark/syslog.conf"
 	val filters = Array("ips","domains","accounts","programs","patterns")
+	val oracleQueries = Map("unixlogin" -> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, remote_ip, existing_user)values ('session start', :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, :usr, :remote_ip, 'Y') ",
+                            "uhnixlogout" -> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, existing_user) values ('session end', :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, :usr, 'Y')",
+                            "failure"->"insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, remote_ip, existing_user) values ('failed login', :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, :usr, :remote_ip, :existing_user)",
+                            "winlogin" -> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, remote_ip, existing_user) values ('session start', lower(:hostname), to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'), :syslogtag, lower(:usr), :remote_ip, 'Y')",
+							"winLogout"-> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, existing_user) values ('session end', lower(:hostname), to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, lower(:usr), 'Y')",
+                            "winFailure" -> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, remote_ip, existing_user) values ('failed login', lower(:hostname), to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, lower(:usr), :remote_ip, 'Y')",
+                        "sshCommand" -> "insert into SECURITY_LOG_DEV.run_commands(command,host,send_timestamp,local_user,syslogtag) values(:cmd, :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS:TZH.TZM'), :usr, :syslogtag)"
+                        )
 	val ssh_logins = Map(
-		        "accept"-> """.*Accepted ([^\s]*)for ([^\s]*).*""".r,
+		       		"accept"-> """.*Accepted ([^\s]*)for ([^\s]*).*""".r,
                 	"accept_ip"-> """.*Accepted ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r,
 	                "fail"-> """.*Failed ([^\s]*) for ([^\s]*).*""".r,
 	                "fail_ip"-> """.*Failed ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r,
@@ -51,7 +63,8 @@ object CertLogProcessor{
 }
 class CertLogProcessor(
 ){
-
+	var preparedStatements : Map[String, PreparedStatement] = null
+	var connection : Connection = null
 	var config :HashMap[String,HashMap[String,ArrayList[String]]] = null
 
 	def process_ssh(data: Option[AvroFlumeEvent]):Option[AvroFlumeEvent] = {
@@ -241,27 +254,28 @@ class CertLogProcessor(
     *    for matches in the interesting parts of the config rule with the
     *    input
     */
-    def evaluate_message(config_rule : HashMap[String,ArrayList[String]],message: String): String  ={
-      	var  matched = 0
-        var relevant_fields = 0
+    def evaluate_message(config_rule : HashMap[String,ArrayList[String]],message: String): Option[String]  ={
+      	var  matched : Int = 0
+        var relevant_fields : Int = 0
 		var keys = config_rule.keySet.iterator
 		var key = ""
 		var value :java.util.ArrayList[String] = null
  
        	while(keys.hasNext){
-		key = keys.next
-		if(CertLogProcessor.filters contains key){
-			relevant_fields += 1
-			value = config_rule.get(key)
+			key = keys.next
+			if(CertLogProcessor.filters contains key){
+				relevant_fields += 1
+				value = config_rule.get(key)
                     if(value contains message){
                         matched += 1
-			}
+					}
         	}
-	}
-	if(matched >= relevant_fields){
-            return true
-     }
-    //return "Not matched for: "+key+"=>"+value +"=>"+message+" ------ Relevant_fields: "+relevant_fields +" - "+ matched
+		}
+		if( matched >= relevant_fields ){
+            return Option("True")
+     	}
+    	return None
+    	//return "Not matched for: "+key+"=>"+value +"=>"+message+" ------ Relevant_fields: "+relevant_fields +" - "+ matched
     }
 
     /*
@@ -296,6 +310,7 @@ class CertLogProcessor(
     def loginLog(data : AvroFlumeEvent ) : Option[AvroFlumeEvent] ={
         var header = data.getHeaders()
         var body = new String(data.getBody.array)
+        var result : Option[AvroFlumeEvent] = None
 
 /*	if(!(header contains "programname"))
             prog = re.search("""([^\s]*):""".r,values[2])
@@ -314,17 +329,21 @@ class CertLogProcessor(
 	return None
 
         if(header containsValue "NT"){
-            return this.process_windows(Option(data))}
+            result = this.process_windows(Option(data))}
         else if((header containsValue "sshd") & (body contains  "attemtping to execute command")){
-            return this.process_commands(Option(data))}
+            result = this.process_commands(Option(data))}
         else if((header containsValue "sshd") & !(body contains "attemtping to execute command")){
-            return this.process_ssh(Option(data))}
+            result = this.process_ssh(Option(data))}
+         result match{
+         	case None => return result
+         	case _ => {this.insertToDb(result.get)
+         				return result}
 
-	return None
+         }
 	}
 	
 	/* Returns if we found a monitoring event and at what time
-	 */
+	 *
 	def benchmark(data: AvroFlumeEvent): Option[String] = {
  
         //var values = this.loginLog(data)
@@ -340,42 +359,77 @@ class CertLogProcessor(
 			if(key.toString contains "MONITORING-patterns" ){
 				var ret = this.evaluate_message(entry,new String(data.getBody.array))
 	            ret  match { 
-					case "True" => return Option("Found @: " +  Calendar.getInstance().get(Calendar.YEAR))
+					case true => return Option("Found @: " +  Calendar.getInstance().get(Calendar.YEAR))
 	                case  _=> return Option(ret) 
 	            }
          	}
         }
 		return Option("None found")
     }
-
+*/
 	
    /* 
     *   if the tup contains any of the values we"re looking for
     *  return the tup
     */
     def process(data: AvroFlumeEvent): Option[AvroFlumeEvent] = {
-	if(this.config == null){
-		this.config = this.read_config(CertLogProcessor.config_path)
-	}
+		if(this.config == null){
+			this.config = this.read_config(CertLogProcessor.config_path)
+		}
         var values = this.loginLog(data)
         values match{
-		case Some(data) => return Option(data)
-		case None => }
+			case Some(data) => return Option(data)
+			case None => }
 
         //check if it"s an event
-	var iter = this.config.keySet.iterator
+		var iter = this.config.keySet.iterator
         var i = 0
         while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
 		var ret = this.evaluate_message(entry,new String(data.getBody.array))
-		ret  match {
-			case true =>
-				data.getHeaders.put("event",key)
-				return Option(data)
-			case false => 		}
+		ret match{
+			case None=>
+			case _=>ret.get  match {
+								case "True" =>
+								data.getHeaders.put("event",key)
+								return Option(data)
+								case _=>}
                
+        }}
+	return None
+    }
+
+    def init(dbHost : String, dbName: String, dbPort: String, dbUser: String, dbpass: String){
+        var url = "jdbc:oracle:thin:"+dbName+"/"+dbpass
+    	 
+    	 //properties for creating connection to Oracle database
+        //var props = new Properties();
+        //props.setProperty("password", dbpass);
+        this.connection = DriverManager.getConnection(url)
+        for(key <- CertLogProcessor.oracleQueries.keys){
+        	this.preparedStatements += (key.toString -> this.connection.prepareStatement(CertLogProcessor.oracleQueries.get(key.toString).get))
         }
-	return None	
+    }
+
+    def insertToDb(data: AvroFlumeEvent){
+    	var header = data.getHeaders()
+
+    	var headerKeys :Array[String] = header.keySet.toArray.asInstanceOf[Array[String]]
+    	var oracleKeys = CertLogProcessor.oracleQueries.keys.toArray
+    	var query:String = ""
+
+    	for(key <- headerKeys){
+    		if(oracleKeys contains key){
+    			var stmt = this.preparedStatements.get(key).get
+		    	stmt.setString(1,header.get("hostname").toString)
+	    		stmt.setString(2,header.get("ts").toString)
+    			stmt.setString(3,header.get("syslogtag").toString)
+    			stmt.setString(4,header.get("usr").toString)
+				if(!(key contains "logout"))
+    				stmt.setString(5,header.get("remote_ip").toString)
+    		}
+		}
+
     }
 }
