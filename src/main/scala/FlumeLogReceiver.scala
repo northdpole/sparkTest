@@ -5,6 +5,9 @@ import org.apache.spark.util.IntParam
 import org.apache.spark.storage.StorageLevel
 import java.io._
 import java.nio._
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+import org.apache.log4j.BasicConfigurator
 
 @serializable
 class FlumeLogReceiver(
@@ -13,28 +16,33 @@ class FlumeLogReceiver(
 	val processor: CertLogProcessor,
 	val host: String,
 	val port: Int
-	 ){
+	){
 
 
 	def run(){
 
+		println("WIll Run on " +this.host + " port " + this.port+" reading every "+this.readingFreq+"ms")
+		val logger = Logger.getLogger("customLogger")
+		logger.debug("Test logging")
+		println(logger.toString)
 		val ssc = new StreamingContext(this.conf,Milliseconds(this.readingFreq))
 		val stream = FlumeUtils.createStream(ssc, this.host, this.port)
 		//println(this.host+this.port)
-		stream.repartition(10)
+		stream.repartition(3)
 	 	stream.count.map(cnt => "Count: Received " + cnt + " flume events." ).print
 
 		//stream.map(event=>"Event: header:"+ event.event.getHeaders.toString+" body:"+ new String(event.event.getBody.array) ).print
 
 		var out = stream.map(event => processor.process(event.event))
 
-		//.saveAsTextFiles("file:///tmp/spark/Output","Log")
-
+		logger.info("Testing the logger, out== " + out.toString)		
+//		logger.debug("Testing the logger, out== " + out.toString)		
+	
 		//ayto den kanei match tpt!
-		out.filter(element =>element match{
-											 case None=>false
-											 case Some(v)=> v.getHeaders.containsValue("Monitoring")}).map(element=>"Filtered:" + element).print
-
+		out.filter(element =>element match{case None=>false
+						   case Some(v)=> v.getHeaders.containsValue("Monitoring")}).map(element=>"Filtered:" + element).print
+		
+		out.print
 		//stream.print()
 
 		ssc.start()

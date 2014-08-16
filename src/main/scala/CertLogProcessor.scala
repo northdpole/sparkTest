@@ -14,8 +14,13 @@ import java.sql.PreparedStatement
 import java.sql.Connection
 import java.util.Properties
 import java.sql.DriverManager
+import org.apache.log4j.Logger
+
 
 object CertLogProcessor{
+	val logger :Logger = Logger.getRootLogger()
+//	logger.setLevel(Level.INFO)
+ 
 	var config_path = "/opt/etc/spark/syslog.conf"
 	val filters = Array("ips","domains","accounts","programs","patterns")
 	val oracleQueries = Map("unixlogin" -> "insert into SECURITY_LOG_DEV.LOGIN_DATA_WIDE (message_type, host, send_timestamp, syslogtag, local_user, remote_ip, existing_user)values ('session start', :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM'),  :syslogtag, :usr, :remote_ip, 'Y') ",
@@ -381,20 +386,27 @@ class CertLogProcessor(
 			case Some(data) => return Option(data)
 			case None => }
 
+	CertLogProcessor.logger.info("Custom Logger says Hi!!"); 
         //check if it"s an event
-		var iter = this.config.keySet.iterator
+	var iter = this.config.keySet.iterator
         var i = 0
+	 
+	val logger = Logger.getLogger("customLogger")
         while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
 		var ret = this.evaluate_message(entry,new String(data.getBody.array))
 		ret match{
-			case None=>
-			case _=>ret.get  match {
-								case "True" =>
+			case None=> logger.info("Evaluate_Message returned none for message " + data.getHeaders.toString)
+			case _=>ret.get  match {case "True" =>
+								logger.info("testing Logger in process, matched: "+ ret)
 								data.getHeaders.put("event",key)
+								println("CertLogProcessor found event! " + data.getHeaders.toString)
+								CertLogProcessor.logger.info("Logger CertLogProcessor found event!" +data.getHeaders.toString); 
 								return Option(data)
-								case _=>}
+						case _=>
+								logger.info("testing Logger in process, matched: "+ ret)
+						}
                
         }}
 	return None

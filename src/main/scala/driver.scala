@@ -8,14 +8,34 @@ import java.util.Calendar
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+import org.apache.log4j.BasicConfigurator
+import org.apache.log4j.ConsoleAppender
+import org.apache.log4j.PatternLayout
 
 object Driver {
 
-	/* Print the jvm arguments */
+	/* setup logging */
+	val console = new ConsoleAppender(); //create appender
+	//configure the appender
+	val PATTERN = "%d [%p|%c|%C{1}] %m%n";
+	console.setLayout(new PatternLayout(PATTERN)); 
+	console.setThreshold(Level.DEBUG);
+	console.activateOptions();
+	//add appender to any Logger (here is root)
+	 var logger = Logger.getLogger("customLogger")
+	logger.debug("Test logging")
+	Logger.getLogger("customLogger").addAppender(console);
+	println("printing" + logger.toString)
+	
+	/* Print the jvm arguments *
 	val runtimeMxBean = ManagementFactory.getRuntimeMXBean();
 	val arguments = runtimeMxBean.getInputArguments();
 	println(arguments.toString)
-
+*/	
+	
+	
 	val flumeServerName: String = "cert-hadoop-002.cern.ch"
 	val port: Int = 3564
 	val readingFreq: Int = 400
@@ -27,7 +47,7 @@ object Driver {
 	val today = Calendar.getInstance().getTime();
 	println(today.toString)
 	val conf = new SparkConf().setAppName(today.toString)
-							  // .setMaster("yarn-client")
+							//  .setMaster("yarn-client")
 							  .set("spark.cleaner.ttl","8")
 							  .set("spark.task.maxFailures","2")
 							  //.set("spark.executor.memory","1g")

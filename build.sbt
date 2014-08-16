@@ -23,9 +23,12 @@ libraryDependencies += ("org.apache.spark" %% "spark-streaming-flume" % "1.0.0")
 .exclude("commons-collections","commons-collections")
 //exclude("com.twitter","chill-java")// exclude("com.twitter","chill_2.10") exclude("commons-configuration","commons-configuration") exclude("org.eclipse.jetty","jetty-plus")
 
+libraryDependencies += "log4j" % "log4j" % "1.2.16"
+
 libraryDependencies += "org.yaml" % "snakeyaml" % "1.13"
 
 resolvers += "Akka Repository" at "http://repo.akka.io/releases/"
 
 resolvers += "Maven Repository" at "http://repo.maven.apache.org/maven2"
+
 
