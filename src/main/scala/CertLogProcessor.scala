@@ -262,6 +262,7 @@ class CertLogProcessor(
     def evaluate_message(config_rule : HashMap[String,ArrayList[String]],message: String): Option[String]  ={
       	var  matched : Int = 0
         var relevant_fields : Int = 0
+	val logger = Logger.getLogger("customLogger")
 		var keys = config_rule.keySet.iterator
 		var key = ""
 		var value :java.util.ArrayList[String] = null
@@ -270,15 +271,17 @@ class CertLogProcessor(
 			key = keys.next
 			if(CertLogProcessor.filters contains key){
 				relevant_fields += 1
-				value = config_rule.get(key)
-                    if(value contains message){
-                        matched += 1
-					}
-        	}
+	  			value = config_rule.get(key)
+   	        	        if(value contains message){
+                        		matched += 1
+				}
+        		}
 		}
 		if( matched >= relevant_fields ){
-            return Option("True")
+        		logger.info("Evaluate Message found "+ key.toString)
+			return Option("True")
      	}
+	logger.info("Evaluate Message Failed to match "+key.toString + "with " +message)
     	return None
     	//return "Not matched for: "+key+"=>"+value +"=>"+message+" ------ Relevant_fields: "+relevant_fields +" - "+ matched
     }
@@ -348,7 +351,7 @@ class CertLogProcessor(
 	}
 	
 	/* Returns if we found a monitoring event and at what time
-	 *
+	 */
 	def benchmark(data: AvroFlumeEvent): Option[String] = {
  
         //var values = this.loginLog(data)
@@ -358,20 +361,21 @@ class CertLogProcessor(
         //check if it"s an event
         var iter = this.config.keySet.iterator
         var i = 0
+	val logger = Logger.getLogger("customLogger")
         while(iter.hasNext){
             var key=iter.next
             var entry = config.get(key)
 			if(key.toString contains "MONITORING-patterns" ){
 				var ret = this.evaluate_message(entry,new String(data.getBody.array))
 	            ret  match { 
-					case true => return Option("Found @: " +  Calendar.getInstance().get(Calendar.YEAR))
-	                case  _=> return Option(ret) 
+					case None => 
+			                case  _=> ret.get match {case "True"=> logger.info("Benchmark found our alert"); return Option("Found alert")}
 	            }
          	}
         }
 		return Option("None found")
     }
-*/
+
 	
    /* 
     *   if the tup contains any of the values we"re looking for
@@ -386,18 +390,22 @@ class CertLogProcessor(
 			case Some(data) => return Option(data)
 			case None => }
 
-	CertLogProcessor.logger.info("Custom Logger says Hi!!"); 
         //check if it"s an event
 	var iter = this.config.keySet.iterator
         var i = 0
 	 
 	val logger = Logger.getLogger("customLogger")
+	if(data.getBody.array.toString contains "google")
+		logger.fatal("found alert, should print it")
+	else
+		logger.fatal("found: " + data.getBody.asCharBuffer.array.toString)
         while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
 		var ret = this.evaluate_message(entry,new String(data.getBody.array))
+		
 		ret match{
-			case None=> logger.info("Evaluate_Message returned none for message " + data.getHeaders.toString)
+			case None=> //logger.info("Evaluate_Message returned none for message " + data.getHeaders.toString)
 			case _=>ret.get  match {case "True" =>
 								logger.info("testing Logger in process, matched: "+ ret)
 								data.getHeaders.put("event",key)
