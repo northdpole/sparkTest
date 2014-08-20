@@ -16,7 +16,6 @@ import java.util.Properties
 import java.sql.DriverManager
 import org.apache.log4j.Logger
 
-
 object CertLogProcessor{
 	val logger :Logger = Logger.getRootLogger()
 //	logger.setLevel(Level.INFO)
@@ -278,10 +277,10 @@ class CertLogProcessor(
         		}
 		}
 		if( matched >= relevant_fields ){
-        		logger.info("Evaluate Message found "+ key.toString)
+        		logger.fatal("Evaluate Message found "+ key.toString)
 			return Option("True")
      	}
-	logger.info("Evaluate Message Failed to match "+key.toString + "with " +message)
+//	logger.info("Evaluate Message Failed to match "+key.toString + "with " +message)
     	return None
     	//return "Not matched for: "+key+"=>"+value +"=>"+message+" ------ Relevant_fields: "+relevant_fields +" - "+ matched
     }
@@ -385,38 +384,42 @@ class CertLogProcessor(
 		if(this.config == null){
 			this.config = this.read_config(CertLogProcessor.config_path)
 		}
-        var values = this.loginLog(data)
+/*        var values = this.loginLog(data)
         values match{
 			case Some(data) => return Option(data)
 			case None => }
-
+*/
         //check if it"s an event
 	var iter = this.config.keySet.iterator
         var i = 0
 	 
 	val logger = Logger.getLogger("customLogger")
-	if(data.getBody.array.toString contains "google")
-		logger.fatal("found alert, should print it")
-	else
-		logger.fatal("found: " + data.getBody.asCharBuffer.array.toString)
-        while(iter.hasNext){
+
+//	logger.fatal("asdfoo: " + new String(data.getBody.array) + "\n\n")
+//	logger.fatal(data.getHeaders.toString)
+	logger.info("process received data")
+
+	if(new String(data.getBody.array) contains "nonexisting_url_to_trigger_an_alert")
+		logger.info("found alert, should print it")
+//	else
+		//logger.fatal("\n\n\n\n found: " + new String(data.getBody.array))
+
+/*        while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
 		var ret = this.evaluate_message(entry,new String(data.getBody.array))
-		
 		ret match{
 			case None=> //logger.info("Evaluate_Message returned none for message " + data.getHeaders.toString)
 			case _=>ret.get  match {case "True" =>
-								logger.info("testing Logger in process, matched: "+ ret)
+								//logger.fatal("testing Logger in process, matched: "+ ret)
 								data.getHeaders.put("event",key)
-								println("CertLogProcessor found event! " + data.getHeaders.toString)
-								CertLogProcessor.logger.info("Logger CertLogProcessor found event!" +data.getHeaders.toString); 
+								//logger.fatal("CertLogProcessor found event! " + data.getHeaders.toString)
+								logger.fatal("Logger CertLogProcessor found event!" + key); 
 								return Option(data)
 						case _=>
-								logger.info("testing Logger in process, matched: "+ ret)
 						}
                
-        }}
+        }}*/
 	return None
     }
 
