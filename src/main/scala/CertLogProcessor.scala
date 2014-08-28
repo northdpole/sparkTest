@@ -31,37 +31,37 @@ object CertLogProcessor{
                         "sshCommand" -> "insert into SECURITY_LOG_DEV.run_commands(command,host,send_timestamp,local_user,syslogtag) values(:cmd, :hostname, to_timestamp_tz(:ts, 'YYYY-MM-DD\"T\"HH24:MI:SS:TZH.TZM'), :usr, :syslogtag)"
                         )
 	val ssh_logins = Map(
-		       		"accept"-> """.*Accepted ([^\s]*)for ([^\s]*).*""".r,
-                	"accept_ip"-> """.*Accepted ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r,
-	                "fail"-> """.*Failed ([^\s]*) for ([^\s]*).*""".r,
-	                "fail_ip"-> """.*Failed ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r,
-	                "non_existing_fail" -> """.*Failed ([^\s]*) for invalid user ([^\s]*)""".r,
-	                "non_existing_fail_ip"-> """.*Failed ([^\s]*) for invalid user ([^\s]*)(?: from ([^\s]*))?""".r,
-	                "logout"-> """.*session closed for user ([^\s]*).*""".r)
-	val ssh_commands = Map( "command" -> """.*User ([^\s]*) attempting to execute command (.*) on command line$""".r)
-	val windows = Map( "domain_controller"-> Map("login"->Map("loginid"->"""New Logon:.*Logon ID:(0x[0-9a-fA-F]+)""".r,
-		                                            	     "usr"->"""New Logon.*Account Name:([a-zA-Z0-9][^\s$]+)""".r,
- 				                                     "ip"->"""Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)""".r),
+		       		"accept"-> """.*Accepted ([^\s]*)for ([^\s]*).*""".r.unanchored,
+                	"accept_ip"-> """.*Accepted ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r.unanchored,
+	                "fail"-> """.*Failed ([^\s]*) for ([^\s]*).*""".r.unanchored,
+	                "fail_ip"-> """.*Failed ([^\s]*) for ([^\s]*)(?: from ([^\s]*))?""".r.unanchored,
+	                "non_existing_fail" -> """.*Failed ([^\s]*) for invalid user ([^\s]*)""".r.unanchored,
+	                "non_existing_fail_ip"-> """.*Failed ([^\s]*) for invalid user ([^\s]*)(?: from ([^\s]*))?""".r.unanchored,
+	                "logout"-> """.*session closed for user ([^\s]*).*""".r.unanchored)
+	val ssh_commands = Map( "command" -> """.*User ([^\s]*) attempting to execute command (.*) on command line$""".r.unanchored)
+	val windows = Map( "domain_controller"-> Map("login"->Map("loginid"->"""New Logon:.*Logon ID:(0x[0-9a-fA-F]+)""".r.unanchored,
+		                                            	     "usr"->"""New Logon.*Account Name:([a-zA-Z0-9][^\s$]+)""".r.unanchored,
+ 				                                     "ip"->"""Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)?""".r.unanchored),
 
-			                           "logout" ->Map("usr" -> """User Logoff:[\s]*User Name:([-\.a-zA-Z0-9]+)\$""".r),
+			                           "logout" ->Map("usr" -> """User Logoff:[\s]*User Name:([-\.a-zA-Z0-9]+)\$""".r.unanchored),
 		
-                			            "failure" -> Map("usr" -> """Account For Which Logon Failed:.*Account Name:([^\s]+)""".r,
-		                        			      "ip" -> """Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)""".r),
+                			            "failure" -> Map("usr" -> """Account For Which Logon Failed:.*Account Name:([^\s]+)""".r.unanchored,
+		                        			      "ip" -> """Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)?""".r.unanchored),
 
-			                            "loginWorkstation"-> Map("workstation" -> """Network Information: Workstation Name:([^\s]+)""".r,
-                        			                             "loginid" -> """New Logon:.*Logon ID:(0x[0-9a-fA-F]+)""".r,
-                                                			      "usr" -> """New Logon.*Account Name:([a-zA-Z0-9][^\s$]+)""".r,
-			                                                      "ip" -> """Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)""".r),
-	                                             "failureWorkstation" -> Map("workstation" -> """Network Information: Workstation Name:([^\s]+)""".r,
-		                                                            	"usr" -> """Account For Which Logon Failed:.*Account Name:([^\s]+)""".r,
-       				                                                "ip" -> """"Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)""".r)),
+			                            "loginWorkstation"-> Map("workstation" -> """Network Information: Workstation Name:([^\s]+)""".r.unanchored,
+                        			                             "loginid" -> """New Logon:.*Logon ID:(0x[0-9a-fA-F]+)""".r.unanchored,
+                                                			      "usr" -> """New Logon.*Account Name:([a-zA-Z0-9][^\s$]+)""".r.unanchored,
+			                                                      "ip" -> """Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)?""".r.unanchored),
+	                                             "failureWorkstation" -> Map("workstation" -> """Network Information: Workstation Name:([^\s]+)""".r.unanchored,
+		                                                            	"usr" -> """Account For Which Logon Failed:.*Account Name:([^\s]+)""".r.unanchored,
+       				                                                "ip" -> """"Source Network Address:[^\s]?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)?""".r.unanchored)),
 			
-	            "terminal_server" -> Map( "login" -> Map ("workstation" -> """Workstation Name:([^\s]+)""".r,
-		                                              "loginid" -> """Logon ID:\(0x0,([^)]+)\)""".r,
-		                                              "usr" -> """Successful[\s]+[^\s]*[\s]*Logon:[\s]*User Name:([^\s]+)""".r,
-		                                              "ip" -> """Source Network Address:([^\s]+)""".r),
-		                                "logout" -> Map("usr" -> """User Name:([^\s$]+)""".r),
-		                                "failure" -> Map("usr" -> """User Name:([^\s$]+)""".r)
+	            "terminal_server" -> Map( "login" -> Map ("workstation" -> """Workstation Name:([^\s]+)""".r.unanchored,
+		                                              "loginid" -> """Logon ID:\(0x0,([^)]+)\)""".r.unanchored,
+		                                              "usr" -> """Successful[\s]+[^\s]*[\s]*Logon:[\s]*User Name:([^\s]+)""".r.unanchored,
+		                                              "ip" -> """Source Network Address:([^\s]+)?""".r.unanchored),
+		                                "logout" -> Map("usr" -> """User Name:([^\s$]+)""".r.unanchored),
+		                                "failure" -> Map("usr" -> """User Name:([^\s$]+)""".r.unanchored)
                             )
 		)
 }
@@ -78,50 +78,62 @@ class CertLogProcessor(
 		case Some(data) => val i = 1/* do nothing, continue */}
 
 		var header = data.get.getHeaders()
+		var body = new String(data.get.getBody.array)
         	var hostname = header.get("host")
 		var time = header.get("timestamp")
 		var syslogtag = header.get("syslogtag")
- 		var reg0 = "".r
-		var reg1 = "".r
-		var matched = false 
+ 		var reg0 = "".r.unanchored
+		var reg1 = "".r.unanchored
 		var usr = ""
 		var ip = ""
 		var misc = ""
 		var ret :AvroFlumeEvent = data.get
+		val logger = Logger.getLogger("customLogger")
 
 		//find the correct regex to apply
-        	if (header.containsValue("Accepted")){
+        	if (header.containsValue("Accepted") || (body contains "Accepted")){
+			logger.info("found Accepted")
             		reg0 = CertLogProcessor.ssh_logins.get("accept").get
             		reg1 = CertLogProcessor.ssh_logins.get("accept_ip").get
-		}else if (header.containsValue("session closed")){
+		}else if (header.containsValue("session closed") || (body contains "session closed")){
 		        reg0 = CertLogProcessor.ssh_logins.get("logout").get
 			val reg0(usr) = new String(ret.getBody.array)
 			ret.getHeaders.put("usr",usr)
+			logger.info("found session closed "+ret.getHeaders)
 			return Option(ret)
-		}else if (header.containsValue("Failed password")){
-			if (header.containsValue("invalid user")){
+		}else if (header.containsValue("Failed password") || (body contains "Failed password")){
+		
+        		        reg0 = CertLogProcessor.ssh_logins.get("fail").get
+				logger.info("found Failed password")
+		                reg1 = CertLogProcessor.ssh_logins.get("fail_ip").get
+
+		}else if (header.containsValue("invalid user") || (body contains "invalid user")){
+				logger.info("foun invalid user")
 	                	reg0 = CertLogProcessor.ssh_logins.get("non_existing_fail").get
 	        	        reg1 = CertLogProcessor.ssh_logins.get("non_existing_fail_ip").get
-  			}else{
-        		        reg0 = CertLogProcessor.ssh_logins.get("fail").get
-		                reg1 = CertLogProcessor.ssh_logins.get("fail_ip").get
-			}
-		}else{
+  		}else{
+		    logger.info("\""+header.toString+body+ "\" didn't match anything in ssh")
 	            return None
 		}
 
-		matched = new String(ret.getBody.array).matches(reg1.toString)
+		var matched = reg1.findAllMatchIn(body)
 		
-		if(matched == false){
-			matched = new String(ret.getBody.array).matches(reg0.toString)
-			if(matched == false){
+		if(matched.isEmpty == true){
+			logger.info("couldn't match1, "+new String(ret.getBody.array) + " doesn't matchi " + reg1.toString)
+			matched = reg0.findAllMatchIn(body)
+			if(matched.isEmpty == false){
+				logger.info("couldn't match2, "+new String(ret.getBody.array) + " doesn't matchi " + reg0.toString)
 				return None
 			}else{
-				var reg0(misc,usr) = new String(ret.getBody.array)
+				logger.info("matched2 will try to extract data from  "+reg0.toString + body)
+				var reg0(misc,usr) = new String(body)
 				ret.getHeaders.put("usr",usr)
+				logger.info("new header "+ret.getHeaders)
 			}
-		}else{
+		}else{	
+			logger.info("Matched true => "+reg1+" matches "+new String(ret.getBody.array))
 			var reg1(misc,usr,ip) = new String(ret.getBody.array)
+			logger.info("1")
 			ret.getHeaders.put("usr",usr)
 			ret.getHeaders.put("ip",ip)
 		}
@@ -143,10 +155,12 @@ class CertLogProcessor(
 	var reg = CertLogProcessor.ssh_commands.get("command").get
 	var matched = false
 	var ret = data.get
-	
-        matched = new String(ret.getBody.array).matches(reg.toString)
+	val logger = Logger.getLogger("customLogger")
+        
+	matched = new String(ret.getBody.array).matches(reg.toString)
         if( matched == false){
-            return None
+           logger.info(new String(ret.getBody.array) + "didn't match anything in commands") 
+	   return None
 	}
         
         var reg(usr,command) = new String(ret.getBody.array)
@@ -166,23 +180,25 @@ class CertLogProcessor(
         var time = header.get("timestamp")
         var syslogtag = header.get("syslogtag")
         var body = new String(data.get.getBody.array)
-	var regUsr = "".r
-	var regIp = "".r
-	var regWorkstation = "".r
+	var regUsr = "".r.unanchored
+	var regIp = "".r.unanchored
+	var regWorkstation = "".r.unanchored
 	var ret = data.get
-
+	val logger = Logger.getLogger("customLogger")
+	
 	// case we have a login
         if ((body contains "An account was successfully logged on") &
-            (body contains "Network Information: Workstation Name:") &
-            !(body contains "Source Network Address:-") &
-             !(body contains "Source Network Address: -" )){
+            (body contains "Network Information: Workstation Name:") //&
+            //!(body contains "Source Network Address:-") &
+             //!(body contains "Source Network Address: -" )
+	   ){
 	    regUsr = CertLogProcessor.windows.get("domain_controller").get.get("login").get.get("usr").get
 	    regIp = CertLogProcessor.windows.get("domain_controller").get.get("login").get.get("ip").get
-        
 	// workstation login
-	}else if(( body contains "An account was successfully logged on") &
-              !(body contains "Source Network Address:-")&
-              !(body contains "Source Network Address: -")){
+	}else if(( body contains "An account was successfully logged on") /*&
+        	      	!(body contains "Source Network Address:-")&
+	              !(body contains "Source Network Address: -")*/
+		){
 		regWorkstation = CertLogProcessor.windows.get("domain_controller").get.get("loginWorkstation").get.get("workstation").get
 		regUsr =  CertLogProcessor.windows.get("domain_controller").get.get("loginWorkstation").get.get("usr").get
 		regIp = CertLogProcessor.windows.get("domain_controller").get.get("loginWorkstation").get.get("ip").get
@@ -193,18 +209,19 @@ class CertLogProcessor(
 
         // failed login
 	}else if((body contains "An account failed to log on") &
-            	(body contains "Network Information: Workstation Name: ") &
+            	(body contains "Network Information: Workstation Name: ") &/*
 	        !(body contains "Source Network Address:-") &
-            	!(body contains "Source Network Address: -") &
-            	!(body contains "sambatestCS")){
+            	!(body contains "Source Network Address: -") &*/
+            	!(body contains "sambatestCS")
+		){
 
 		regUsr = CertLogProcessor.windows.get("domain_controller").get.get("failure").get.get("usr").get
 		regIp = CertLogProcessor.windows.get("domain_controller").get.get("failure").get.get("ip").get
 
         // failed login workstation
-	}else if (( body contains "An account failed to log on") &
+	}else if (( body contains "An account failed to log on") &/*
             	!(body contains "Source Network Address:-") &
-            	!(body contains "Source Network Address: -") &
+            	!(body contains "Source Network Address: -") &*/
             	!(body contains "sambatestCS")){
 		
 		regWorkstation = CertLogProcessor.windows.get("domain_controller").get.get("failureWorkstation").get.get("workstation").get
@@ -217,9 +234,10 @@ class CertLogProcessor(
 
         //terminal server login
 	}else if(((body contains "Successful Logon") |
-	          (body contains "Successful Network Logon")) &
-            	!(body contains "Source Network Address:-") &
-            	!(body contains "Source Network Address: -")){
+		  (body contains "Successful Network Logon")) /*&
+            		!(body contains "Source Network Address:-") &
+	            	!(body contains "Source Network Address: -")*/
+		){
 
         	
 		regWorkstation = CertLogProcessor.windows.get("terminal_server").get.get("login").get.get("workstation").get
@@ -244,12 +262,13 @@ class CertLogProcessor(
             ret.getHeaders.put("usr",usr)
             return Option(ret)
 	}
-       
-        var regIp(ip) = body
-	var regUsr(usr) = body
-	ret.getHeaders.put("usr",usr)
-	ret.getHeaders.put("ip",ip)
-        return Option(ret)
+	var ip = regIp.findFirstMatchIn(body).get.toString 
+	var usr =  regUsr.findFirstMatchIn(body).get.toString
+	logger.info(body.matches(regIp.toString)) 
+	logger.info(body.matches(regUsr.toString))
+	ret.getHeaders.put("usr",usr.toString)
+	ret.getHeaders.put("ip",ip.toString)
+	return Option(ret)
 }
 
 
@@ -258,21 +277,41 @@ class CertLogProcessor(
     *    for matches in the interesting parts of the config rule with the
     *    input
     */
-    def evaluate_message(config_rule : HashMap[String,ArrayList[String]],message: String): Option[String]  ={
+    def evaluate_message(config_rule : HashMap[String,ArrayList[String]],message: String, ruleName:String): Option[String]  ={
       	var  matched : Int = 0
         var relevant_fields : Int = 0
 	val logger = Logger.getLogger("customLogger")
-		var keys = config_rule.keySet.iterator
-		var key = ""
-		var value :java.util.ArrayList[String] = null
- 
+	var log = false
+	var keys = config_rule.keySet.iterator
+	var key = ""
+	var vals :java.util.Iterator[String] = null
+	var value = ""
+
+ 	if(message contains "nonexisting_url_to_trigger_an_alert"){
+		logger.info("found alert, should print it")
+		if( ruleName contains "MONITORING-patterns" ){
+			log = true
+			logger.info("found our alert Print it already")
+		}
+	//	else
+	//		logger.info(config_rule.keySet.toString)
+	}
+	
        	while(keys.hasNext){
 			key = keys.next
 			if(CertLogProcessor.filters contains key){
+				if(log)	logger.info("relevant field: " + key + "its values houild be :" + value)
 				relevant_fields += 1
-	  			value = config_rule.get(key)
-   	        	        if(value contains message){
-                        		matched += 1
+	  			vals = config_rule.get(key).iterator
+				
+				while(vals.hasNext){	
+   	 				value = vals.next()       	        	
+					if(message contains value){
+						if(log)logger.info("matched: " + value)
+                        			matched += 1
+					}else{
+						if(log)logger.info("apparently "+message+"does not contain "+ value)
+					}
 				}
         		}
 		}
@@ -293,17 +332,19 @@ class CertLogProcessor(
         val yaml = new Yaml()
         var cf :String = scala.io.Source.fromFile(CertLogProcessor.config_path).mkString
         val config = yaml.load(cf).asInstanceOf[java.util.HashMap[String,java.util.HashMap[String,ArrayList[String]]]]
-
+	//val removeBrackets = """  """.r
+	val logger = Logger.getLogger("customLogger")
 
         var relevant_config : HashMap[String,HashMap[String,ArrayList[String]]] = new HashMap()
         var iter = config.keySet.iterator
         var i = 0
         while(iter.hasNext){
-                var key=iter.next
+               var key=iter.next
                 var entry = config.get(key).get("sensors")
 
                 if(entry contains "csl"){
                         relevant_config.put(key.toString,config.get(key))
+		//	logger.info("Config values are: "+config.get(key).toString)
                 }
         }
         return relevant_config
@@ -318,63 +359,63 @@ class CertLogProcessor(
         var header = data.getHeaders()
         var body = new String(data.getBody.array)
         var result : Option[AvroFlumeEvent] = None
+	val logger = Logger.getLogger("customLogger")
+	val progName = """([^\s]*):""".r.unanchored
+	var notFound = "noTag"
 
-/*	if(!(header contains "programname"))
-            prog = re.search("""([^\s]*):""".r,values[2])
-            if prog is None:
-                sys.stderr.write("SyslogBole: loginlog: 246: could not find a programname")
-                return
-            values[1]["programname"] = prog.group("p")
-            values[1]["syslogtag"] = prog.group("p")
-*/
-        if( !( header containsKey "host") |
-            !( header containsKey "timestamp") |
-            !( header containsKey "syslogtag")){
-		/* TODO: throw incorrect metadata exception */
+	if(!(header.keySet contains "programname") & !(header.keySet contains "syslogtag")){
+           val matched = progName.findFirstMatchIn(body)
+            if(matched == None){
+                logger.info("Syslog: loginlog: 246: could not find a programname or syslogtag, body is " + body)
+	        //header.put("programname",notFound)
+		//header.put("syslogtag", notFound)
+
+	   }else{
+	        header.put("programname",matched.get.toString)
+		header.put("syslogtag", matched.get.toString)
+		}
+	}
+        if( !( header containsKey "host")){
+		logger.fatal("didn't find host in header: " + header.toString)
+		return None
+	} 
+        if ( !( header containsKey "timestamp") ){
+		logger.fatal("didn't found timestamp in header: " + header.toString)
 		return None
 	}
-	return None
+         if ( !( header containsKey "syslogtag")){
+		/* TODO: throw incorrect metadata exception */
+		logger.fatal("didn't find syslogtag in the header "+header.toString)
+		return None
+	}
+        if(header.get("syslogtag") == "NT:"){
+            //TODO uncomment result = this.process_windows(Option(data))
+	}
+        /* TODO add an if else */
 
-        if(header containsValue "NT"){
-            result = this.process_windows(Option(data))}
-        else if((header containsValue "sshd") & (body contains  "attemtping to execute command")){
-            result = this.process_commands(Option(data))}
-        else if((header containsValue "sshd") & !(body contains "attemtping to execute command")){
-            result = this.process_ssh(Option(data))}
+	if((header.toString contains "sshd") & (body contains  "attemtping to execute command")){
+		logger.info("recognized command login")
+            result = this.process_commands(Option(data))
+	}
+        else{
+//		logger.info("not matched: ssd,attempting to execute command:+ "+header.toString + "\n:\n" + body)
+	}
+	 if((header.toString contains "sshd") & !(body contains "attemtping to execute command")){
+		logger.info("recognized ssh login " +header.toString + body)
+            result = this.process_ssh(Option(data))
+	}
+        else{
+		//logger.info("not matched: ssd:+ "+header.toString + "\n:\n" + body)
+	}
          result match{
-         	case None => return result
-         	case _ => {this.insertToDb(result.get)
-         				return result}
+         	case None => return None
+         	case _ => {
+			//todo uncomment this.insertToDb(result.get)
+         		return result
+		}
 
          }
 	}
-	
-	/* Returns if we found a monitoring event and at what time
-	 */
-	def benchmark(data: AvroFlumeEvent): Option[String] = {
- 
-        //var values = this.loginLog(data)
-
-		//return Option("None found")
-		
-        //check if it"s an event
-        var iter = this.config.keySet.iterator
-        var i = 0
-	val logger = Logger.getLogger("customLogger")
-        while(iter.hasNext){
-            var key=iter.next
-            var entry = config.get(key)
-			if(key.toString contains "MONITORING-patterns" ){
-				var ret = this.evaluate_message(entry,new String(data.getBody.array))
-	            ret  match { 
-					case None => 
-			                case  _=> ret.get match {case "True"=> logger.info("Benchmark found our alert"); return Option("Found alert")}
-	            }
-         	}
-        }
-		return Option("None found")
-    }
-
 	
    /* 
     *   if the tup contains any of the values we"re looking for
@@ -384,30 +425,32 @@ class CertLogProcessor(
 		if(this.config == null){
 			this.config = this.read_config(CertLogProcessor.config_path)
 		}
-/*        var values = this.loginLog(data)
-        values match{
-			case Some(data) => return Option(data)
-			case None => }
-*/
+
+	val logger = Logger.getLogger("customLogger")
+	
+//	logger.fatal(" message header== "+data.getHeaders.toString + "\n message body == " + new String(data.getBody.array) + "\n\n")
+        
+       	var values = loginLog(data)
+	 values match{
+			case Some(loginEvent) => logger.fatal("found login")
+				    return Option(loginEvent)
+			case None => //logger.info("couldn't find login for" +data.getHeaders.toString+new String(data.getBody.array)) 
+		    }
+
         //check if it"s an event
 	var iter = this.config.keySet.iterator
-        var i = 0
+//        var i = 0
 	 
-	val logger = Logger.getLogger("customLogger")
+return None
+//logger.info("process received data")
 
-//	logger.fatal("asdfoo: " + new String(data.getBody.array) + "\n\n")
-//	logger.fatal(data.getHeaders.toString)
-	logger.info("process received data")
-
-	if(new String(data.getBody.array) contains "nonexisting_url_to_trigger_an_alert")
-		logger.info("found alert, should print it")
-//	else
+	//	else
 		//logger.fatal("\n\n\n\n found: " + new String(data.getBody.array))
 
-/*        while(iter.hasNext){
+        while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
-		var ret = this.evaluate_message(entry,new String(data.getBody.array))
+		var ret = this.evaluate_message(entry,new String(data.getBody.array),key)
 		ret match{
 			case None=> //logger.info("Evaluate_Message returned none for message " + data.getHeaders.toString)
 			case _=>ret.get  match {case "True" =>
@@ -419,7 +462,7 @@ class CertLogProcessor(
 						case _=>
 						}
                
-        }}*/
+        }}
 	return None
     }
 
@@ -454,5 +497,5 @@ class CertLogProcessor(
     		}
 		}
 
-    }
+   }
 }

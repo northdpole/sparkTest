@@ -25,14 +25,15 @@ object Driver {
 	console.activateOptions();
 
 	//add appender to any Logger (here is root)
-	 var logger = Logger.getLogger("customLogger")
+	var logger = Logger.getLogger("customLogger")
 	Logger.getLogger("customLogger").addAppender(console);
-	println("printing" + logger.toString)
-	logger.debug("Test logging")
+//	println("printing" + logger.toString)
+//	logger.debug("Test logging")
+
 /*	 Print the jvm arguments */
-	val runtimeMxBean = ManagementFactory.getRuntimeMXBean();
-	val arguments = runtimeMxBean.getInputArguments();
-	println(arguments.toString)
+//	val runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+//	val arguments = runtimeMxBean.getInputArguments();
+//	println(arguments.toString)
 	
 	
 	

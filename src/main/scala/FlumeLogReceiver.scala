@@ -18,33 +18,23 @@ class FlumeLogReceiver(
 	val host: String,
 	val port: Int
 	){
-	
-	def printAll(element : RDD[SparkFlumeEvent]){
-		val logger = Logger.getLogger("customLogger")
-		var data = element.collect
-		var i = 0
-		for(d <- data){
-			logger.fatal(processor.process(d.event))
-			i+=1
-			//logger.fatal("Printing data for RDD " + new String(d.event.getBody.array))
-		}
-		logger.fatal(i)
-	}
-
 	def run(){
 
-		println("WIll Run on " +this.host + " port " + this.port+" reading every "+this.readingFreq+"ms")
+	//	println("WIll Run on " +this.host + " port " + this.port+" reading every "+this.readingFreq+"ms")
 
-		val logger = Logger.getLogger("customLogger")
+	//	val logger = Logger.getLogger("customLogger")
 		
 		val ssc = new StreamingContext(this.conf,Milliseconds(this.readingFreq))
 		val stream = FlumeUtils.createStream(ssc, this.host, this.port,StorageLevel.MEMORY_AND_DISK_2)
 
 //		stream.repartition(1)
 //		stream.count.map(cnt=>"Received " +cnt+" events").print
+		/* and that's the correct way to transform the event to a string */
+//		stream.map(foo => new String(foo.event.getBody.array)).print
+	
 //		var test = stream.count
 //		test.map(cnt => "Count is of type "+cnt.getClass.getName).print
-		
+
 
 
 //	 	var cnt = stream.countByValue()
@@ -52,9 +42,7 @@ class FlumeLogReceiver(
 //		stream.filter(event=> new String(event.event.getBody.array) contains "google").print
 	
 		stream.foreachRDD(foo => printAll(foo))
-		/* And that's the correct way to transform the event to a string */
-		//stream.map(foo => logger.fatal(new String(foo.event.getBody.array)) ).print
-	
+
 
 
 		//stream.map(event=>"Event: header:"+ event.event.getHeaders.toString+" body:"+ new String(event.event.getBody.array) ).print
@@ -76,10 +64,20 @@ class FlumeLogReceiver(
 //		out.filter(element =>element match{case None=>false
 //						   case Some(v)=> true /*v.getHeaders.containsValue("Monitoring")*/}).map(element=>"Filtered:" + element).print
 		
-		//stream.print()
+//		stream.print()
 		ssc.start()
 		ssc.awaitTermination()
 		//Thread.sleep(100000)
 		//ssc.stop()
-  }
+  	}
+	def printAll(element : RDD[SparkFlumeEvent]){
+		val logger = Logger.getLogger("customLogger")
+		var data = element.collect
+		var i = 0
+		for(d <- data){
+			i+=1
+			logger.info(processor.process(d.event))
+		}
+		logger.fatal(i)
+	}
 }
