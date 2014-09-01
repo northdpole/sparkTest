@@ -9,14 +9,11 @@ import java.nio._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.log4j.BasicConfigurator
+import org.apache.flume.source.avro._
 
 @serializable
 class FlumeLogReceiver(
-	val conf: SparkConf,
-	val readingFreq: Long,
-	val processor: CertLogProcessor,
-	val host: String,
-	val port: Int
+	val processor: CertLogProcessor
 	){
 	def run(){
 
@@ -24,10 +21,7 @@ class FlumeLogReceiver(
 
 	//	val logger = Logger.getLogger("customLogger")
 		
-		val ssc = new StreamingContext(this.conf,Milliseconds(this.readingFreq))
-		val stream = FlumeUtils.createStream(ssc, this.host, this.port,StorageLevel.MEMORY_AND_DISK_2)
-
-//		stream.repartition(1)
+		//		stream.repartition(1)
 //		stream.count.map(cnt=>"Received " +cnt+" events").print
 		/* and that's the correct way to transform the event to a string */
 //		stream.map(foo => new String(foo.event.getBody.array)).print
@@ -41,8 +35,7 @@ class FlumeLogReceiver(
 //		cnt.map(cnt => "Count: Received " + cnt + " flume events." ).print
 //		stream.filter(event=> new String(event.event.getBody.array) contains "google").print
 	
-		stream.foreachRDD(foo => printAll(foo))
-
+		//stream.foreachRDD(foo => printAll(foo))
 
 
 		//stream.map(event=>"Event: header:"+ event.event.getHeaders.toString+" body:"+ new String(event.event.getBody.array) ).print
@@ -65,11 +58,31 @@ class FlumeLogReceiver(
 //						   case Some(v)=> true /*v.getHeaders.containsValue("Monitoring")*/}).map(element=>"Filtered:" + element).print
 		
 //		stream.print()
-		ssc.start()
-		ssc.awaitTermination()
-		//Thread.sleep(100000)
+	//Thread.sleep(100000)
 		//ssc.stop()
   	}
+	def printEvent(b : RDD[Option[AvroFlumeEvent]]){
+		val logger = Logger.getLogger("customLogger")
+		var x = b.collect
+		logger.info(x)
+		println(x)
+		var i = 0;
+		for(d<-x){
+			i+=1
+			d match{case None=>
+				case _=>var a = d.get
+			logger.info("lalala printing "+a.getHeaders.toString + new String(a.getBody.array))
+			println("lalala printing "+a.getHeaders.toString + new String(a.getBody.array))
+		}}
+		logger.info(i+" foo")
+	}
+	def printAllMapped(element : SparkFlumeEvent): Option[AvroFlumeEvent] = {
+		val logger = Logger.getLogger("customLogger")
+		processor.process(element.event) match{
+			case None=> None
+			case sth => return sth
+		}
+	}
 	def printAll(element : RDD[SparkFlumeEvent]){
 		val logger = Logger.getLogger("customLogger")
 		var data = element.collect

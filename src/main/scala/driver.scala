@@ -37,7 +37,7 @@ object Driver {
 	
 	
 	
-	val flumeServerName: String = "localhost"
+	val host: String = "localhost"
 	val port: Int = 3564
 	val readingFreq: Int = 400
 
@@ -53,8 +53,13 @@ object Driver {
 							  .set("spark.task.maxFailures","2")
 	//.setJars("/tmp/cert-log-manager-assembly-1.0.jar")//.set("spark.streaming.unpersist" ,"true")	
 
-	val receiver = new FlumeLogReceiver(conf,this.readingFreq,processor,this.flumeServerName,this.port)
-
+	val receiver = new FlumeLogReceiver(processor)
+	val ssc = new StreamingContext(conf,Milliseconds(readingFreq))
+	val stream = FlumeUtils.createStream(ssc, host, port,StorageLevel.MEMORY_AND_DISK_2)
+	stream.map(event=>receiver.printAllMapped(event)).foreachRDD(a=>receiver.printEvent(a))
+	ssc.start()
+	ssc.awaitTermination()
+	
 	
 	receiver.run()
   }

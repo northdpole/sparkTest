@@ -17,7 +17,6 @@ import java.sql.DriverManager
 import org.apache.log4j.Logger
 
 object CertLogProcessor{
-	val logger :Logger = Logger.getRootLogger()
 //	logger.setLevel(Level.INFO)
  
 	var config_path = "/opt/etc/spark/syslog.conf"
@@ -65,6 +64,7 @@ object CertLogProcessor{
                             )
 		)
 }
+@serializable
 class CertLogProcessor(
 ){
 	var preparedStatements : Map[String, PreparedStatement] = null
@@ -128,12 +128,12 @@ class CertLogProcessor(
 				logger.info("matched2 will try to extract data from  "+reg0.toString + body)
 				var reg0(misc,usr) = new String(body)
 				ret.getHeaders.put("usr",usr)
-				logger.info("new header "+ret.getHeaders)
+				//logger.info("new header "+ret.getHeaders)
 			}
 		}else{	
 			logger.info("Matched true => "+reg1+" matches "+new String(ret.getBody.array))
 			var reg1(misc,usr,ip) = new String(ret.getBody.array)
-			logger.info("1")
+			//logger.info("1")
 			ret.getHeaders.put("usr",usr)
 			ret.getHeaders.put("ip",ip)
 		}
@@ -264,8 +264,8 @@ class CertLogProcessor(
 	}
 	var ip = regIp.findFirstMatchIn(body).get.toString 
 	var usr =  regUsr.findFirstMatchIn(body).get.toString
-	logger.info(body.matches(regIp.toString)) 
-	logger.info(body.matches(regUsr.toString))
+	//logger.info(body.matches(regIp.toString)) 
+	//logger.info(body.matches(regUsr.toString))
 	ret.getHeaders.put("usr",usr.toString)
 	ret.getHeaders.put("ip",ip.toString)
 	return Option(ret)
@@ -287,7 +287,7 @@ class CertLogProcessor(
 	var vals :java.util.Iterator[String] = null
 	var value = ""
 
- 	if(message contains "nonexisting_url_to_trigger_an_alert"){
+ 	/*if(message contains "nonexisting_url_to_trigger_an_alert"){
 		logger.info("found alert, should print it")
 		if( ruleName contains "MONITORING-patterns" ){
 			log = true
@@ -295,12 +295,12 @@ class CertLogProcessor(
 		}
 	//	else
 	//		logger.info(config_rule.keySet.toString)
-	}
+	}*/
 	
        	while(keys.hasNext){
 			key = keys.next
 			if(CertLogProcessor.filters contains key){
-				if(log)	logger.info("relevant field: " + key + "its values houild be :" + value)
+				if(log)	logger.info("relevant field: " + key + " its values houild be :" + value)
 				relevant_fields += 1
 	  			vals = config_rule.get(key).iterator
 				
@@ -316,7 +316,7 @@ class CertLogProcessor(
         		}
 		}
 		if( matched >= relevant_fields ){
-        		logger.fatal("Evaluate Message found "+ key.toString)
+        		if(log)logger.fatal("Evaluate Message found "+ key.toString)
 			return Option("True")
      	}
 //	logger.info("Evaluate Message Failed to match "+key.toString + "with " +message)
@@ -375,33 +375,33 @@ class CertLogProcessor(
 		header.put("syslogtag", matched.get.toString)
 		}
 	}
-        if( !( header containsKey "host")){
-		logger.fatal("didn't find host in header: " + header.toString)
+        if( !( header.toString contains "host")){
+		logger.fatal("didn't find host in header: " + header.keySet.toString)
 		return None
 	} 
-        if ( !( header containsKey "timestamp") ){
-		logger.fatal("didn't found timestamp in header: " + header.toString)
+        if ( !( header.toString contains "timestamp") ){
+		logger.fatal("didn't find timestamp in header: " + header.toString)
 		return None
 	}
-         if ( !( header containsKey "syslogtag")){
+         if ( !( header.toString contains "syslogtag")){
 		/* TODO: throw incorrect metadata exception */
 		logger.fatal("didn't find syslogtag in the header "+header.toString)
 		return None
 	}
         if(header.get("syslogtag") == "NT:"){
-            //TODO uncomment result = this.process_windows(Option(data))
+            result = this.process_windows(Option(data))
 	}
         /* TODO add an if else */
 
 	if((header.toString contains "sshd") & (body contains  "attemtping to execute command")){
-		logger.info("recognized command login")
+	//	logger.info("recognized command login")
             result = this.process_commands(Option(data))
 	}
         else{
 //		logger.info("not matched: ssd,attempting to execute command:+ "+header.toString + "\n:\n" + body)
 	}
 	 if((header.toString contains "sshd") & !(body contains "attemtping to execute command")){
-		logger.info("recognized ssh login " +header.toString + body)
+	//	logger.info("recognized ssh login " +header.toString + body)
             result = this.process_ssh(Option(data))
 	}
         else{
@@ -428,11 +428,12 @@ class CertLogProcessor(
 
 	val logger = Logger.getLogger("customLogger")
 	
-//	logger.fatal(" message header== "+data.getHeaders.toString + "\n message body == " + new String(data.getBody.array) + "\n\n")
-        
+	//logger.fatal(" message header== "+data.getHeaders.toString + "\n message body == " + new String(data.getBody.array) + "\n\n")
+//        if(new String(data.getBody.array) contains "alert")
+//		logger.info("alerted")
        	var values = loginLog(data)
 	 values match{
-			case Some(loginEvent) => logger.fatal("found login")
+			case Some(loginEvent) => logger.info("found login: " + loginEvent.getHeaders + new String(loginEvent.getBody.array))
 				    return Option(loginEvent)
 			case None => //logger.info("couldn't find login for" +data.getHeaders.toString+new String(data.getBody.array)) 
 		    }
@@ -441,7 +442,6 @@ class CertLogProcessor(
 	var iter = this.config.keySet.iterator
 //        var i = 0
 	 
-return None
 //logger.info("process received data")
 
 	//	else
