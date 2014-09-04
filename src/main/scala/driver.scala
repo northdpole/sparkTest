@@ -43,8 +43,13 @@ object Driver {
 
 	def main(args: Array[String]) {
 		
-	val processor = new CertLogProcessor()
-	processor.set_config(processor.read_config(CertLogProcessor.config_path))
+	val csl = new CertLogProcessor("csl")
+	val dnim_badips= new CertLogProcessor("dnim-badips")
+	val logins = new LoginProcessor()
+
+	csl.set_config(csl.read_config(CertLogProcessor.config_path))
+	dnim_badips.set_config(dnim_badips.read_config(CertLogProcessor.config_path))
+
 	val today = Calendar.getInstance().getTime();
 	println(today.toString)
 	val conf = new SparkConf().setAppName(today.toString)
@@ -53,14 +58,14 @@ object Driver {
 							  .set("spark.task.maxFailures","2")
 	//.setJars("/tmp/cert-log-manager-assembly-1.0.jar")//.set("spark.streaming.unpersist" ,"true")	
 
-	val receiver = new FlumeLogReceiver(processor)
+	val receiver = new FlumeLogReceiver(csl,logins,dnim_badips)
 	val ssc = new StreamingContext(conf,Milliseconds(readingFreq))
 	val stream = FlumeUtils.createStream(ssc, host, port,StorageLevel.MEMORY_AND_DISK_2)
-	stream.map(event=>receiver.printAllMapped(event)).foreachRDD(a=>receiver.printEvent(a))
+//	stream.map(event=>receiver.printAllMapped(event)).foreachRDD(a=>receiver.printEvent(a))
+	stream.foreachRDD(a=>receiver.printAll(a))
 	ssc.start()
 	ssc.awaitTermination()
 	
 	
-	receiver.run()
   }
 }
