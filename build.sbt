@@ -13,6 +13,9 @@ scalaVersion := "2.10.4"
 
 libraryDependencies += "org.apache.spark" %% "spark-streaming" % "1.0.0" % "provided"
 
+libraryDependencies += ("org.apache.flume" % "flume-ng-sdk" % "1.5.0.1").exclude("commons-collections","commons-collections")
+.exclude("commons-logging","commons-logging")
+
 libraryDependencies += ("org.apache.spark" %% "spark-streaming-flume" % "1.0.0")
 .exclude("org.eclipse.jetty.orbit","javax.transaction")
 //.exclude("org.eclipse.jetty.orbit","javax.servlet")

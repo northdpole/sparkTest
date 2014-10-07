@@ -1,7 +1,8 @@
 import org.apache.spark.streaming._
+import org.apache.spark.streaming.flume._
+import org.apache.spark.streaming.flume.SparkFlumeEvent
 import org.apache.spark.rdd._
 import org.apache.flume.source.avro._
-import org.apache.spark.streaming.flume._
 import scala.util.matching._
 import org.yaml.snakeyaml.Yaml 
 import java.util.HashMap
@@ -15,17 +16,19 @@ import java.sql.Connection
 import java.util.Properties
 import java.sql.DriverManager
 import org.apache.log4j.Logger
+import CERNcertSparkFlumeEvent._
 
-object CertLogProcessor{
+object CertLogProcessor {
 //	logger.setLevel(Level.INFO) 
-	var config_path = "/opt/etc/spark/syslog.conf"
+	var config_path = "/opt/etc/spark/spark.conf"
 	val filters = Array("ips","domains","accounts","programs","patterns")
 }
 @serializable
 class CertLogProcessor(
-	var sensor :String
+	var sensor :String,
+	var config :HashMap[String,HashMap[String,ArrayList[String]]]
 ){
-	var config :HashMap[String,HashMap[String,ArrayList[String]]] = null
+	this.config = read_config(CertLogProcessor.config_path)
 
    /*
     *    loops throught the items in the config rule and searches
@@ -39,7 +42,6 @@ class CertLogProcessor(
 	var log = false
 	var keys = config_rule.keySet.iterator
 	var key = ""
-	var vals :java.util.Iterator[String] = null
 	var value = ""
 
  	/*if(message contains "nonexisting_url_to_trigger_an_alert"){
@@ -57,7 +59,7 @@ class CertLogProcessor(
 			if(CertLogProcessor.filters contains key){
 				if(log)	logger.info("relevant field: " + key + " its values houild be :" + value)
 				relevant_fields += 1
-	  			vals = config_rule.get(key).iterator
+	  			var vals = config_rule.get(key).iterator
 				
 				while(vals.hasNext){	
    	 				value = vals.next()       	        	
@@ -106,30 +108,17 @@ class CertLogProcessor(
         }
 	def set_config(config: HashMap[String,HashMap[String,ArrayList[String]]]){
 		this.config =config
-	} 
-
+	}
+	
    /* 
     *   if the tup contains any of the values we"re looking for
     *  return the tup
     */
-    def process(data: AvroFlumeEvent): Option[AvroFlumeEvent] = {
-		if(this.config == null){
-			this.config = this.read_config(CertLogProcessor.config_path)
-		}
-
+    def process(ev: SparkFlumeEvent): Option[CERNcertSparkFlumeEvent] = {
 	val logger = Logger.getLogger("customLogger")
+	val data = ev.event
 	
-	//logger.fatal(" message header== "+data.getHeaders.toString + "\n message body == " + new String(data.getBody.array) + "\n\n")
-//        if(new String(data.getBody.array) contains "alert")
-//		logger.info("alerted")
 	 var iter = this.config.keySet.iterator
-//        var i = 0
-	 
-//logger.info("process received data")
-
-	//	else
-		//logger.fatal("\n\n\n\n found: " + new String(data.getBody.array))
-
         while(iter.hasNext){
                 var key=iter.next
                 var entry = config.get(key)
@@ -139,9 +128,10 @@ class CertLogProcessor(
 			case _=>ret.get  match {case "True" =>
 								//logger.fatal("testing Logger in process, matched: "+ ret)
 								data.getHeaders.put("event",key)
+								data.getHeaders.put("eventType","alert")
 								//logger.fatal("CertLogProcessor found event! " + data.getHeaders.toString)
 								logger.fatal("Logger CertLogProcessor found event!" + key); 
-								return Option(data)
+								return Option(CERNcertSparkFlumeEvent.fromAvroFlumeEvent(data))
 						case _=>
 						}
                
