@@ -20,15 +20,15 @@ import CERNcertSparkFlumeEvent._
 
 object CertLogProcessor {
 //	logger.setLevel(Level.INFO) 
-	var config_path = "/opt/etc/spark/spark.conf"
 	val filters = Array("ips","domains","accounts","programs","patterns")
 }
 @serializable
 class CertLogProcessor(
 	var sensor :String,
-	var config :HashMap[String,HashMap[String,ArrayList[String]]]
+	var filters :Array[String],
+	var config_path:String
 ){
-	this.config = read_config(CertLogProcessor.config_path)
+	var config :HashMap[String,HashMap[String,ArrayList[String]]] = read_config(this.config_path)
 
    /*
     *    loops throught the items in the config rule and searches
@@ -87,7 +87,7 @@ class CertLogProcessor(
      */
     def read_config(path: String): HashMap[String,HashMap[String,ArrayList[String]]]  = {
         val yaml = new Yaml()
-        var cf :String = scala.io.Source.fromFile(CertLogProcessor.config_path).mkString
+        var cf :String = scala.io.Source.fromFile(this.config_path).mkString
         val config = yaml.load(cf).asInstanceOf[java.util.HashMap[String,java.util.HashMap[String,ArrayList[String]]]]
 	//val removeBrackets = """  """.r
 	val logger = Logger.getLogger("customLogger")
@@ -117,7 +117,6 @@ class CertLogProcessor(
     def process(ev: SparkFlumeEvent): Option[CERNcertSparkFlumeEvent] = {
 	val logger = Logger.getLogger("customLogger")
 	val data = ev.event
-	
 	 var iter = this.config.keySet.iterator
         while(iter.hasNext){
                 var key=iter.next
